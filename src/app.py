@@ -262,13 +262,18 @@ def main():
     except Exception:
         pass
 
-    # Map first (lead)
-    st.markdown('<div class="section-header">Geographic Distribution</div>', unsafe_allow_html=True)
-    map_fig = create_choropleth_map(merged_df, variable, color_scale, map_style, highlight)
-    st.plotly_chart(map_fig, use_container_width=True, config={"displayModeBar": False, "responsive": True})
-
-    # Compact analysis tabs
-    tabs = st.tabs(["Top/Bottom", "Distributions", "Correlation", "Relationships", "Risk", "Data"]) 
+    # Main tabs
+    main_tabs = st.tabs(["🗺️ Map View", "📊 Analysis", "ℹ️ About"])
+    
+    with main_tabs[0]:
+        # Map first (lead)
+        st.markdown('<div class="section-header">Geographic Distribution</div>', unsafe_allow_html=True)
+        map_fig = create_choropleth_map(merged_df, variable, color_scale, map_style, highlight)
+        st.plotly_chart(map_fig, use_container_width=True, config={"displayModeBar": False, "responsive": True})
+    
+    with main_tabs[1]:
+        # Compact analysis tabs
+        tabs = st.tabs(["Top/Bottom", "Distributions", "Correlation", "Relationships", "Risk", "Data"]) 
 
     with tabs[0]:
         left, right = st.columns(2)
@@ -315,6 +320,48 @@ def main():
         if search_term:
             df_to_show = df_to_show[df_to_show['district'].str.contains(search_term, case=False)]
         st.dataframe(df_to_show, use_container_width=True, height=420)
+    
+    with main_tabs[2]:
+        st.markdown("## About This Dashboard")
+        
+        st.markdown("""
+        ### Overview
+        This Pakistan Climate Dashboard provides comprehensive insights into climate patterns, demographic data, and risk assessments across Pakistan's districts. The dashboard combines climate metrics with socio-economic indicators to offer a holistic view of regional variations.
+        
+        ### Data Sources
+        - **Climate Data**: District-level climate metrics including temperature, rainfall, and risk indices
+        - **Geographic Boundaries**: Administrative district boundaries from geoBoundaries
+        - **Demographic Data**: Population statistics and socio-economic indicators
+        
+        ### Key Metrics
+        - **Temperature**: Average annual temperature in Celsius
+        - **Rainfall**: Average annual rainfall in millimeters  
+        - **Drought Risk**: Index indicating vulnerability to drought conditions
+        - **Flood Risk**: Index indicating vulnerability to flood events
+        - **Demographics**: Population, density, literacy, and poverty rates
+        
+        ### How to Use
+        1. **Map View**: Explore geographic distribution of variables across districts
+        2. **Analysis**: Dive deeper into statistical patterns and relationships
+        3. **Controls**: Use the sidebar to change variables, color schemes, and map styles
+        4. **Search**: Filter districts by name to focus on specific regions
+        
+        ### Climate Context
+        Pakistan's climate varies significantly from the arid regions of Balochistan to the monsoon-affected areas of Punjab and Sindh. This dashboard helps identify:
+        - Temperature gradients across elevation and latitude
+        - Rainfall patterns influenced by monsoon systems
+        - Districts vulnerable to climate-related risks
+        - Socio-economic factors that may amplify climate impacts
+        
+        ### Technical Details
+        - Built with Streamlit and Plotly
+        - Interactive choropleth maps with multiple styling options
+        - Statistical analysis including correlations and distributions
+        - Exportable data for further analysis
+        
+        ### Contact
+        For questions or suggestions about this dashboard, please contact the development team.
+        """)
 
 if __name__ == "__main__":
     main()
