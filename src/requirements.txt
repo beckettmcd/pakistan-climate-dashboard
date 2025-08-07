@@ -1,0 +1,9 @@
+streamlit==1.37.1
+pandas==2.2.2
+numpy==1.26.4
+plotly==5.22.0
+pydeck==0.9.1
+geopandas==0.14.1
+shapely==2.0.2
+streamlit-folium==0.13.0
+folium==0.15.1
