@@ -11,7 +11,38 @@ from folium.plugins import MarkerCluster
 import geopandas as gpd
 from shapely.geometry import shape
 import warnings
+import os
 warnings.filterwarnings('ignore')
+
+# Optional Sentry import (will not crash if package is missing)
+SENTRY_DSN = os.getenv("SENTRY_DSN", "")
+try:
+    if SENTRY_DSN:
+        import sentry_sdk
+        from sentry_sdk.integrations.logging import LoggingIntegration
+        from sentry_sdk.integrations.stdlib import StdlibIntegration
+        from sentry_sdk.integrations.excepthook import ExcepthookIntegration
+        from sentry_sdk.integrations.modules import ModulesIntegration
+        from sentry_sdk.integrations.aiohttp import AioHttpIntegration
+
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.2")),
+            profiles_sample_rate=float(os.getenv("SENTRY_PROFILES_SAMPLE_RATE", "0.0")),
+            integrations=[
+                LoggingIntegration(level=None, event_level=None),
+                StdlibIntegration(),
+                ExcepthookIntegration(always_run=True),
+                ModulesIntegration(),
+                AioHttpIntegration(),
+            ],
+            environment=os.getenv("SENTRY_ENVIRONMENT", "production"),
+            release=os.getenv("SENTRY_RELEASE"),
+        )
+    else:
+        sentry_sdk = None  # type: ignore
+except Exception:
+    sentry_sdk = None  # type: ignore
 
 # Page configuration
 st.set_page_config(
@@ -25,43 +56,179 @@ st.set_page_config(
 st.markdown("""
 <style>
     :root {
-        /* Tokens */
-        --dai-green: #58B957;              /* primary accent */
-        --dai-deep-gray: #303C42;          /* titles */
-        --dai-mid-gray: #5A6A72;           /* secondary text */
-        --dai-border: #E6E9EC;             /* light borders */
-        --dai-bg: #FCFDFE;                 /* page tint */
-        --dai-white: #FFFFFF;
-        --dai-shadow: 0 3px 10px rgba(17, 25, 33, 0.05);
+        /* Modern color palette */
+        --primary: #2563EB;                /* vibrant blue */
+        --primary-light: #60A5FA;          /* light blue */
+        --accent: #10B981;                 /* emerald */
+        --text-primary: #1F2937;           /* near black */
+        --text-secondary: #4B5563;         /* medium gray */
+        --text-tertiary: #9CA3AF;          /* light gray */
+        --border: #E5E7EB;                 /* subtle border */
+        --bg-primary: #FFFFFF;             /* white */
+        --bg-secondary: #F9FAFB;           /* off white */
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
     }
 
-    .block-container { padding-top: 0.5rem; padding-bottom: 0.75rem; }
+    /* Modern typography */
+    body {
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
 
-    /* Minimal page header */
-    .page-header { background: var(--dai-white); border: 1px solid var(--dai-border); border-left: 4px solid var(--dai-green); border-radius: 4px; padding: 14px 18px; box-shadow: var(--dai-shadow); }
-    .page-header .brand { color: var(--dai-mid-gray); text-transform: uppercase; letter-spacing: .35px; font-size: 12px; }
-    .page-header h1 { color: var(--dai-deep-gray); margin: 4px 0 4px 0; font-size: 1.6rem; font-weight: 700; letter-spacing: -0.2px; }
-    .page-header .lede { margin: 0; color: var(--dai-mid-gray); font-size: 0.95rem; }
+    .block-container { 
+        padding-top: 1rem; 
+        padding-bottom: 1rem;
+        max-width: 1280px;
+        margin: 0 auto;
+    }
+
+    /* Enhanced page header */
+    .page-header { 
+        background: var(--bg-primary);
+        border: 1px solid var(--border);
+        border-left: 4px solid var(--primary);
+        border-radius: 8px;
+        padding: 1.5rem;
+        box-shadow: var(--shadow-md);
+        margin-bottom: 1.5rem;
+    }
+    .page-header .brand { 
+        color: var(--primary);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+    .page-header h1 { 
+        color: var(--text-primary);
+        margin: 0.5rem 0;
+        font-size: 2rem;
+        font-weight: 800;
+        letter-spacing: -0.025em;
+        line-height: 1.2;
+    }
+    .page-header .lede { 
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 1.125rem;
+        line-height: 1.5;
+    }
 
     /* Section header */
     .section-header {
-        font-size: 1.05rem; font-weight: 700; color: var(--dai-deep-gray);
-        margin: 1rem 0 0.5rem 0; padding-bottom: 0.35rem;
-        border-bottom: 2px solid var(--dai-green); text-transform: uppercase; letter-spacing: .3px;
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 1.5rem 0 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid var(--primary);
+        letter-spacing: -0.025em;
     }
 
-    /* Tabs */
-    .stTabs [data-baseweb="tab-list"] { gap: .25rem; border-bottom: 1px solid var(--dai-border); }
-    .stTabs [data-baseweb="tab"] { padding: .5rem .75rem; color: var(--dai-mid-gray); }
-    .stTabs [data-baseweb="tab"][aria-selected="true"] { color: var(--dai-deep-gray); border-bottom: 2px solid var(--dai-green); }
+    /* Enhanced tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 0.5rem;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 0.25rem;
+    }
+    .stTabs [data-baseweb="tab"] {
+        padding: 0.75rem 1rem;
+        color: var(--text-secondary);
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+    .stTabs [data-baseweb="tab"]:hover {
+        color: var(--primary);
+        background: var(--bg-secondary);
+        border-radius: 6px;
+    }
+    .stTabs [data-baseweb="tab"][aria-selected="true"] {
+        color: var(--primary);
+        border-bottom: 2px solid var(--primary);
+        font-weight: 600;
+    }
 
-    /* Cards and tables */
-    .stAlert, .stDataFrame, .js-plotly-plot { border: 1px solid var(--dai-border); box-shadow: none; }
-    .stDataFrame { border-radius: 0; }
+    /* Modern cards and data displays */
+    .stAlert, .stDataFrame, .js-plotly-plot {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: var(--shadow-sm);
+        transition: box-shadow 0.2s ease;
+    }
+    .stAlert:hover, .stDataFrame:hover, .js-plotly-plot:hover {
+        box-shadow: var(--shadow-md);
+    }
+    
+    /* Sidebar refinements */
+    .css-1d391kg {
+        background: var(--bg-secondary);
+        border-right: 1px solid var(--border);
+    }
+    
+    /* Input fields */
+    .stTextInput > div > div {
+        border-radius: 6px;
+        border-color: var(--border);
+    }
+    .stTextInput > div > div:focus-within {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
 
-    /* Buttons accent */
-    .stButton > button { background: var(--dai-green); color: #fff; border: 0; }
-    .stButton > button:hover { filter: brightness(.95); }
+    /* Enhanced buttons */
+    .stButton > button {
+        background: var(--primary);
+        color: white;
+        border: 0;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+    .stButton > button:hover {
+        background: var(--primary-light);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+    }
+    
+    /* Metrics and KPIs */
+    .css-1xarl3l {
+        background: var(--bg-primary);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem;
+        box-shadow: var(--shadow-sm);
+    }
+    
+    /* Select boxes */
+    .stSelectbox > div > div {
+        border-radius: 6px;
+        border-color: var(--border);
+    }
+    .stSelectbox > div > div:hover {
+        border-color: var(--primary-light);
+    }
+    
+    /* Slider */
+    .stSlider > div > div > div > div {
+        background: var(--primary);
+    }
+    
+    /* Data tables */
+    .stDataFrame {
+        font-family: "Inter", sans-serif;
+    }
+    .stDataFrame th {
+        background: var(--bg-secondary);
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+    .stDataFrame td {
+        color: var(--text-secondary);
+    }
 
     /* Title override (we render our own header) */
     .main-header { display: none; }
@@ -110,6 +277,86 @@ def _scale_0_1(series: pd.Series) -> pd.Series:
     return (s - min_val) / (max_val - min_val)
 
 
+def _standardize_district_name(name: str) -> str:
+    if not isinstance(name, str):
+        return ""
+    return name.strip().lower().replace(" district", "").replace("-", " ")
+
+
+@st.cache_data
+def load_profiles() -> pd.DataFrame | None:
+    """Load rich district profiles CSV if present and extract useful columns.
+
+    The source has very long, sometimes duplicated column names. We use
+    case-insensitive substring matching to pick the most useful columns.
+    """
+    path_options = [
+        'district_profiles_parsed_from_dps1.csv',
+        'data/district_profiles_parsed_from_dps1.csv',
+    ]
+    csv_path = next((p for p in path_options if os.path.exists(p)), None)
+    if not csv_path:
+        return None
+    try:
+        raw = pd.read_csv(csv_path, low_memory=False)
+    except Exception:
+        return None
+
+    # Build a helper for fuzzy column picking
+    cols_lower = {c.lower(): c for c in raw.columns}
+    def pick(*patterns: str) -> str | None:
+        for pat in patterns:
+            pat_l = pat.lower()
+            for c_l, orig in cols_lower.items():
+                if pat_l in c_l:
+                    return orig
+        return None
+
+    mapping: dict[str, str | None] = {
+        'province': pick('province'),
+        'district': pick('district'),
+        'area_km2_profile': pick('area (sq.', 'area (sq. km)'),
+        'population_profile': pick('population population', 'population,'),
+        'density_profile': pick('population density per sq.'),
+        'sex_ratio_profile': pick('sex r', 'sex ratio (males'),
+        'urban_population_profile': pick('urban population'),
+        'rural_population_profile': pick('rural population'),
+        'mdpi': pick('multi dimensional poverty index'),
+        'toilet_access_pct': pick('percentage of households with toilet'),
+        'learning_score': pick('learning score'),
+        'electricity_availability': pick('availability of electricity'),
+        'water_availability': pick('availability of water'),
+        'toilet_availability': pick('availability of toilet'),
+        'temp_june_max_c_profile': pick('mean temperature in june (max)'),
+        'temp_jan_min_c_profile': pick('mean temperature in january (min)'),
+        'rainfall_aug_mm_profile': pick('rainfall in august (mm)'),
+        'rainfall_nov_mm_profile': pick('rainfall in november (mm)'),
+        # Health capacity signals (optional)
+        'govt_health_institutions': pick('govt. health institutions','govt health institutions'),
+        'bed_strength': pick('bed strength'),
+        'private_health_institutions': pick('priv. health institutions','private health'),
+        # Education signals
+        'num_primary_schools': pick('number of primary schools'),
+        'num_middle_schools': pick('number of middle schools'),
+        'num_high_schools': pick('number of high schools'),
+        'num_higher_secondary_schools': pick('number of higher secondary schools'),
+    }
+
+    selected_cols = {k: v for k, v in mapping.items() if v is not None}
+    if 'district' not in selected_cols:
+        return None
+    df = raw[list(selected_cols.values())].rename(columns={v: k for k, v in selected_cols.items()})
+    # Standardize district name
+    df['district'] = df['district'].astype(str).map(_standardize_district_name)
+
+    # Coerce numerics
+    for col in df.columns:
+        if col == 'district' or col == 'province':
+            continue
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+    return df
+
+
 def compute_vulnerability_index(
     df: pd.DataFrame,
     *,
@@ -156,10 +403,12 @@ def compute_vulnerability_index(
 def load_data():
     climate_df = pd.read_csv('data/Sample_District_Climate_Data.csv')
     climate_df = _add_demographics(climate_df)
+    climate_df['district'] = climate_df['district'].astype(str).map(_standardize_district_name)
     with open('data/geoBoundaries-PAK-ADM2 (1).geojson', 'r') as f:
         geo_data = json.load(f)
     gdf = gpd.GeoDataFrame.from_features(geo_data['features'])
     gdf = gdf.rename(columns={'shapeName': 'district'})
+    gdf['district'] = gdf['district'].astype(str).map(_standardize_district_name)
     merged_df = gdf.merge(climate_df, on='district', how='left')
     # Precompute centroids for highlighting overlays
     try:
@@ -261,6 +510,20 @@ def create_scatter_plot(data, x_col, y_col, color_col=None):
 
 def main():
     climate_df, merged_df, geo_data = load_data()
+    # Enrich with district profiles if available
+    profiles_df = load_profiles()
+    if profiles_df is not None:
+        try:
+            climate_df = climate_df.merge(profiles_df, on='district', how='left')
+            merged_df = merged_df.merge(
+                profiles_df[[
+                    'district',
+                    *[c for c in ['mdpi','toilet_access_pct','learning_score','electricity_availability','water_availability','toilet_availability'] if c in profiles_df.columns]
+                ]],
+                on='district', how='left'
+            )
+        except Exception:
+            pass
 
     # Query params (deep links)
     qp = st.query_params
@@ -282,8 +545,21 @@ def main():
 
     # Sidebar controls
     st.sidebar.markdown("### Controls")
+
+    # Optional: user feedback sent to Sentry as "user_feedback" message
+    if SENTRY_DSN and sentry_sdk:
+        with st.sidebar.expander("Send quick feedback"):
+            fb = st.text_area("Tell us what broke or what to improve", placeholder="Type here…")
+            if st.button("Send feedback") and fb.strip():
+                try:
+                    sentry_sdk.capture_message(f"user_feedback: {fb.strip()}")
+                    st.success("Thanks! Your feedback was sent.")
+                except Exception:
+                    st.warning("Feedback service unavailable right now.")
     variable_choices = ['avg_temperature_c', 'avg_rainfall_mm', 'drought_risk_index', 'flood_risk_index',
                         'population','population_density','area_km2','literacy_rate','poverty_rate']
+    if 'mdpi' in climate_df.columns:
+        variable_choices.append('mdpi')
     variable = st.sidebar.selectbox(
         "Variable",
         variable_choices,
@@ -324,7 +600,10 @@ def main():
 
     # Composite vulnerability index controls
     st.sidebar.markdown("### Vulnerability Model")
-    w_hazard, w_exposure, w_sensitivity, w_capacity = st.sidebar.slider("Weights (Hazard, Exposure, Sensitivity, Capacity)", 0.0, 1.0, (0.35, 0.25, 0.25, 0.15))
+    w_hazard = st.sidebar.slider("Weight: Hazard", 0.0, 1.0, 0.35, 0.05)
+    w_exposure = st.sidebar.slider("Weight: Exposure", 0.0, 1.0, 0.25, 0.05)
+    w_sensitivity = st.sidebar.slider("Weight: Sensitivity", 0.0, 1.0, 0.25, 0.05)
+    w_capacity = st.sidebar.slider("Weight: Capacity", 0.0, 1.0, 0.15, 0.05)
     shock_drought = st.sidebar.slider("Scenario shock: Drought", 0.5, 1.5, 1.0, 0.05)
     shock_flood = st.sidebar.slider("Scenario shock: Flood", 0.5, 1.5, 1.0, 0.05)
     climate_df = compute_vulnerability_index(
@@ -339,7 +618,7 @@ def main():
     merged_df = merged_df.merge(climate_df[['district','vulnerability_index']], on='district', how='left')
 
     # Main tabs
-    main_tabs = st.tabs(["🗺️ Map View", "📊 Analysis", "⚙️ Scenarios", "ℹ️ About"])
+    main_tabs = st.tabs(["Map View", "Analysis", "Scenarios", "Portfolio", "District Profiles", "About"])
     
     with main_tabs[0]:
         # Map first (lead)
@@ -393,6 +672,10 @@ def main():
             st.markdown("**High Flood Risk (> 0.7)**")
             high_flood = climate_df[climate_df['flood_risk_index'] > 0.7][['district','flood_risk_index']].sort_values('flood_risk_index', ascending=False)
             st.dataframe(high_flood, use_container_width=True, height=260)
+        if 'mdpi' in climate_df.columns:
+            st.markdown("**High Poverty (MDPI top 15)**")
+            mdpi_top = climate_df.dropna(subset=['mdpi']).nlargest(15, 'mdpi')[['district','mdpi']]
+            st.dataframe(mdpi_top, use_container_width=True, height=260)
 
     with main_tabs[2]:
         st.markdown('<div class="section-header">Scenario Explorer</div>', unsafe_allow_html=True)
@@ -422,13 +705,307 @@ def main():
             for r in recs:
                 st.write("- ", r)
 
+    # New: Policy Portfolio Optimizer
+    with main_tabs[3]:
+        st.markdown('<div class="section-header">Policy Portfolio Optimizer</div>', unsafe_allow_html=True)
+        st.caption("Allocate a budget across interventions to minimize the Climate Vulnerability Index (CVI). Uses simple elasticities for transparent decisions.")
+
+        # Inputs
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            target_scope = st.selectbox("Scope", ["National (all districts)", "Focus on selected districts"], index=0)
+            selected_districts = []
+            if target_scope == "Focus on selected districts":
+                selected_districts = st.multiselect("Districts", options=sorted(climate_df['district'].unique()))
+        with col2:
+            total_budget = st.number_input("Total budget (USD m)", min_value=1.0, value=50.0, step=1.0)
+        with col3:
+            planning_horizon = st.slider("Horizon (years)", 1, 5, 3)
+
+        # Simple cost-effectiveness parameters (USD m per unit reduction of component)
+        st.markdown("**Interventions**")
+        i1, i2, i3, i4 = st.columns(4)
+        with i1:
+            cost_drought = st.number_input("Drought resilience cost per unit", min_value=0.1, value=2.0, step=0.1)
+            eff_drought = st.slider("Effect on drought risk (per $m)", 0.0, 0.05, 0.02, 0.005)
+        with i2:
+            cost_flood = st.number_input("Flood resilience cost per unit", min_value=0.1, value=2.0, step=0.1)
+            eff_flood = st.slider("Effect on flood risk (per $m)", 0.0, 0.05, 0.02, 0.005)
+        with i3:
+            cost_capacity = st.number_input("Capacity building cost per unit", min_value=0.1, value=1.5, step=0.1)
+            eff_capacity = st.slider("Effect on literacy (pp per $m)", 0.0, 0.5, 0.2, 0.05)
+        with i4:
+            cost_social = st.number_input("Social protection cost per unit", min_value=0.1, value=1.5, step=0.1)
+            eff_social = st.slider("Effect on poverty (pp per $m)", 0.0, 0.5, 0.2, 0.05)
+
+        # Determine working set
+        if target_scope == "Focus on selected districts" and selected_districts:
+            work_df = climate_df[climate_df['district'].isin(selected_districts)].copy()
+        else:
+            work_df = climate_df.copy()
+
+        # Greedy allocation by marginal CVI reduction per $m
+        weights = dict(hazard= w_hazard, exposure= w_exposure, sensitivity= w_sensitivity, capacity= w_capacity)
+        remaining_budget = total_budget
+        allocation = {"Drought": 0.0, "Flood": 0.0, "Capacity": 0.0, "Social": 0.0}
+
+        def compute_cvi(df_: pd.DataFrame) -> pd.Series:
+            hazard = _scale_0_1((df_['drought_risk_index'] + df_['flood_risk_index'])/2)
+            exposure = _scale_0_1(df_['population_density'])
+            sensitivity = _scale_0_1(df_['poverty_rate'])
+            capacity = _scale_0_1(df_['literacy_rate'])
+            w = np.array([weights['hazard'], weights['exposure'], weights['sensitivity'], weights['capacity']], dtype=float)
+            w = w / (w.sum() if w.sum() > 0 else 1)
+            cvi = (w[0]*hazard + w[1]*exposure + w[2]*sensitivity + w[3]*(1-capacity))
+            return _scale_0_1(cvi) * 100
+
+        baseline_cvi = compute_cvi(work_df).mean()
+        base_cvi = baseline_cvi
+
+        # Precompute per-$m effects on components average
+        def marginal_gain(intervention: str) -> float:
+            tmp = work_df.copy()
+            if intervention == "Drought":
+                tmp['drought_risk_index'] = (tmp['drought_risk_index'] - eff_drought).clip(lower=0)
+            elif intervention == "Flood":
+                tmp['flood_risk_index'] = (tmp['flood_risk_index'] - eff_flood).clip(lower=0)
+            elif intervention == "Capacity":
+                tmp['literacy_rate'] = (tmp['literacy_rate'] + eff_capacity).clip(upper=100)
+            elif intervention == "Social":
+                tmp['poverty_rate'] = (tmp['poverty_rate'] - eff_social).clip(lower=0)
+            return base_cvi - compute_cvi(tmp).mean()
+
+        cost_map = {"Drought": cost_drought, "Flood": cost_flood, "Capacity": cost_capacity, "Social": cost_social}
+
+        # Greedy loop
+        max_iterations = int(total_budget * 10)
+        for _ in range(max_iterations):
+            if remaining_budget <= 0:
+                break
+            options = []
+            for k in allocation.keys():
+                gain = marginal_gain(k)
+                score = gain / cost_map[k] if cost_map[k] > 0 else 0
+                options.append((score, k, gain))
+            options.sort(reverse=True)
+            best = options[0]
+            if best[0] <= 0:
+                break
+            k = best[1]
+            step = min(0.5, remaining_budget)  # allocate in 0.5m increments
+            allocation[k] += step
+            remaining_budget -= step
+            # Apply effect to working dataframe to update base for next iteration
+            if k == "Drought":
+                work_df['drought_risk_index'] = (work_df['drought_risk_index'] - eff_drought*step).clip(lower=0)
+            elif k == "Flood":
+                work_df['flood_risk_index'] = (work_df['flood_risk_index'] - eff_flood*step).clip(lower=0)
+            elif k == "Capacity":
+                work_df['literacy_rate'] = (work_df['literacy_rate'] + eff_capacity*step).clip(upper=100)
+            elif k == "Social":
+                work_df['poverty_rate'] = (work_df['poverty_rate'] - eff_social*step).clip(lower=0)
+            base_cvi = compute_cvi(work_df).mean()
+
+        # Results
+        res1, res2 = st.columns([1,1])
+        with res1:
+            st.markdown("**Recommended Allocation (USD m)**")
+            st.dataframe(pd.DataFrame({"Intervention": allocation.keys(), "USD_m": [round(v,2) for v in allocation.values()]}), use_container_width=True, height=180)
+        with res2:
+            st.markdown("**Projected Impact**")
+            projected_cvi = compute_cvi(work_df).mean()
+            st.metric("Average CVI", f"{projected_cvi:.1f}", delta=f"{(baseline_cvi - projected_cvi):.1f}")
+            st.caption("Delta = reduction in CVI vs. baseline (positive is good).")
+        # Optional social co-benefits note
+        try:
+            if 'mdpi' in climate_df.columns:
+                st.info("Tip: Combine allocation with MDPI by focusing investments in districts with highest MDPI for equity.")
+        except Exception:
+            pass
+
+    # New: District Profiles Page
+    with main_tabs[4]:
+        st.markdown('<div class="section-header">District Profiles</div>', unsafe_allow_html=True)
+        st.caption("Comprehensive district-level information for evidence-based decision making.")
+
+        # District selector
+        selected_district = st.selectbox(
+            "Select District",
+            options=sorted(climate_df['district'].unique()),
+            index=0
+        )
+
+        # Get district data
+        district_data = climate_df[climate_df['district'] == selected_district].iloc[0]
+
+        # Header with district name
+        st.markdown(f"## {selected_district.title()}")
+
+        # Create tabs for different information categories
+        profile_tabs = st.tabs(["Overview", "Climate", "Demographics", "Infrastructure", "Economic"])
+
+        with profile_tabs[0]:
+            st.markdown("### Key Metrics")
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("Population", f"{district_data['population']:,.0f}")
+            with col2:
+                st.metric("Area (km²)", f"{district_data['area_km2']:,.1f}")
+            with col3:
+                st.metric("Density (per km²)", f"{district_data['population_density']:,.1f}")
+            with col4:
+                if 'mdpi' in district_data and pd.notna(district_data['mdpi']):
+                    st.metric("MDPI", f"{district_data['mdpi']:.3f}")
+                else:
+                    st.metric("Poverty Rate", f"{district_data['poverty_rate']:.1f}%")
+
+            # Vulnerability assessment
+            st.markdown("### Climate Vulnerability Assessment")
+            vuln_col1, vuln_col2, vuln_col3 = st.columns(3)
+            
+            with vuln_col1:
+                st.metric("Vulnerability Index", f"{district_data['vulnerability_index']:.1f}")
+            with vuln_col2:
+                st.metric("Drought Risk", f"{district_data['drought_risk_index']:.3f}")
+            with vuln_col3:
+                st.metric("Flood Risk", f"{district_data['flood_risk_index']:.3f}")
+
+        with profile_tabs[1]:
+            st.markdown("### Climate Profile")
+            climate_col1, climate_col2 = st.columns(2)
+            
+            with climate_col1:
+                st.markdown("**Temperature**")
+                st.metric("Average Temperature", f"{district_data['avg_temperature_c']:.1f}°C")
+                
+                st.markdown("**Rainfall**")
+                st.metric("Average Rainfall", f"{district_data['avg_rainfall_mm']:.0f} mm")
+
+            with climate_col2:
+                # Show profile climate data if available
+                if 'temp_june_max_c_profile' in district_data and pd.notna(district_data['temp_june_max_c_profile']):
+                    st.markdown("**Seasonal Patterns**")
+                    st.metric("June Max Temp", f"{district_data['temp_june_max_c_profile']:.1f}°C")
+                    st.metric("January Min Temp", f"{district_data['temp_jan_min_c_profile']:.1f}°C")
+                    st.metric("August Rainfall", f"{district_data['rainfall_aug_mm_profile']:.0f} mm")
+                    st.metric("November Rainfall", f"{district_data['rainfall_nov_mm_profile']:.0f} mm")
+
+        with profile_tabs[2]:
+            st.markdown("### Demographics & Social Indicators")
+            demo_col1, demo_col2 = st.columns(2)
+            
+            with demo_col1:
+                st.markdown("**Population**")
+                st.metric("Total Population", f"{district_data['population']:,.0f}")
+                st.metric("Population Density", f"{district_data['population_density']:,.1f} per km²")
+                
+                st.markdown("**Education**")
+                st.metric("Literacy Rate", f"{district_data['literacy_rate']:.1f}%")
+                if 'learning_score' in district_data and pd.notna(district_data['learning_score']):
+                    st.metric("Learning Score", f"{district_data['learning_score']:.1f}/100")
+
+            with demo_col2:
+                st.markdown("**Poverty & Development**")
+                if 'mdpi' in district_data and pd.notna(district_data['mdpi']):
+                    st.metric("MDPI", f"{district_data['mdpi']:.3f}")
+                else:
+                    st.metric("Poverty Rate", f"{district_data['poverty_rate']:.1f}%")
+                
+                st.markdown("**Basic Services**")
+                if 'toilet_access_pct' in district_data and pd.notna(district_data['toilet_access_pct']):
+                    st.metric("Toilet Access", f"{district_data['toilet_access_pct']:.1f}%")
+                if 'electricity_availability' in district_data and pd.notna(district_data['electricity_availability']):
+                    st.metric("Electricity Access", f"{district_data['electricity_availability']:.1f}%")
+                if 'water_availability' in district_data and pd.notna(district_data['water_availability']):
+                    st.metric("Water Access", f"{district_data['water_availability']:.1f}%")
+
+        with profile_tabs[3]:
+            st.markdown("### Infrastructure & Services")
+            infra_col1, infra_col2 = st.columns(2)
+            
+            with infra_col1:
+                st.markdown("**Education Infrastructure**")
+                if 'num_primary_schools' in district_data and pd.notna(district_data['num_primary_schools']):
+                    st.metric("Primary Schools", f"{district_data['num_primary_schools']:.0f}")
+                if 'num_middle_schools' in district_data and pd.notna(district_data['num_middle_schools']):
+                    st.metric("Middle Schools", f"{district_data['num_middle_schools']:.0f}")
+                if 'num_high_schools' in district_data and pd.notna(district_data['num_high_schools']):
+                    st.metric("High Schools", f"{district_data['num_high_schools']:.0f}")
+                if 'num_higher_secondary_schools' in district_data and pd.notna(district_data['num_higher_secondary_schools']):
+                    st.metric("Higher Secondary", f"{district_data['num_higher_secondary_schools']:.0f}")
+
+            with infra_col2:
+                st.markdown("**Health Infrastructure**")
+                if 'govt_health_institutions' in district_data and pd.notna(district_data['govt_health_institutions']):
+                    st.metric("Govt Health Institutions", f"{district_data['govt_health_institutions']:.0f}")
+                if 'bed_strength' in district_data and pd.notna(district_data['bed_strength']):
+                    st.metric("Hospital Beds", f"{district_data['bed_strength']:.0f}")
+                if 'private_health_institutions' in district_data and pd.notna(district_data['private_health_institutions']):
+                    st.metric("Private Health Institutions", f"{district_data['private_health_institutions']:.0f}")
+
+        with profile_tabs[4]:
+            st.markdown("### Economic Profile")
+            econ_col1, econ_col2 = st.columns(2)
+            
+            with econ_col1:
+                st.markdown("**Employment & Industry**")
+                if 'employment_cost' in district_data and pd.notna(district_data['employment_cost']):
+                    st.metric("Employment Cost", f"{district_data['employment_cost']:,.0f}")
+                if 'salaries' in district_data and pd.notna(district_data['salaries']):
+                    st.metric("Total Salaries", f"{district_data['salaries']:,.0f}")
+                if 'value_produced_manufacturing' in district_data and pd.notna(district_data['value_produced_manufacturing']):
+                    st.metric("Manufacturing Value", f"{district_data['value_produced_manufacturing']:,.0f}")
+
+            with econ_col2:
+                st.markdown("**Agriculture**")
+                if 'number_of_cattle' in district_data and pd.notna(district_data['number_of_cattle']):
+                    st.metric("Cattle Population", f"{district_data['number_of_cattle']:,.0f}")
+                if 'cultivated_area' in district_data and pd.notna(district_data['cultivated_area']):
+                    st.metric("Cultivated Area (ha)", f"{district_data['cultivated_area']:,.0f}")
+                if 'cropped_area' in district_data and pd.notna(district_data['cropped_area']):
+                    st.metric("Cropped Area (ha)", f"{district_data['cropped_area']:,.0f}")
+
+        # Priority recommendations
+        st.markdown("### Priority Recommendations")
+        recommendations = []
+        
+        if district_data['drought_risk_index'] > 0.7:
+            recommendations.append("**Drought Resilience**: Implement water harvesting systems, promote drought-tolerant crops, and establish drip irrigation infrastructure.")
+        if district_data['flood_risk_index'] > 0.7:
+            recommendations.append("**Flood Protection**: Develop early warning systems, construct embankments, and implement asset elevation programs.")
+        if district_data['poverty_rate'] > 40 or ('mdpi' in district_data and district_data['mdpi'] > 0.3):
+            recommendations.append("**Social Protection**: Establish cash-for-work programs on resilience assets and provide livelihood grants.")
+        if district_data['literacy_rate'] < 55:
+            recommendations.append("**Capacity Building**: Implement community climate information services and risk education programs.")
+        if 'toilet_access_pct' in district_data and district_data['toilet_access_pct'] < 50:
+            recommendations.append("**Sanitation**: Improve toilet access and hygiene infrastructure.")
+        if 'electricity_availability' in district_data and district_data['electricity_availability'] < 70:
+            recommendations.append("**Energy Access**: Expand electricity infrastructure and promote renewable energy solutions.")
+
+        if not recommendations:
+            recommendations.append("**Monitoring**: Maintain risk monitoring systems and update local adaptation plans regularly.")
+
+        for i, rec in enumerate(recommendations, 1):
+            st.markdown(f"{i}. {rec}")
+
+        # Export district data
+        st.markdown("### Export District Data")
+        district_export = climate_df[climate_df['district'] == selected_district]
+        st.download_button(
+            f"Download {selected_district.title()} Profile",
+            district_export.to_csv(index=False).encode('utf-8'),
+            file_name=f"{selected_district.lower().replace(' ', '_')}_profile.csv",
+            mime="text/csv"
+        )
+
     with tabs[5]:
         df_to_show = climate_df
         if search_term:
             df_to_show = df_to_show[df_to_show['district'].str.contains(search_term, case=False)]
         st.dataframe(df_to_show, use_container_width=True, height=420)
     
-    with main_tabs[2]:
+    with main_tabs[5]:
         st.markdown("## About This Dashboard")
         
         st.markdown("""

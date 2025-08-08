@@ -7,3 +7,4 @@ geopandas==0.14.1
 shapely==2.0.2
 streamlit-folium==0.13.0
 folium==0.15.1
+\nsentry-sdk==1.39.1
